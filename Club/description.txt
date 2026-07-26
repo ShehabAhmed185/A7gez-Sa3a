@@ -1,0 +1,4 @@
+Futsal Pitch Booking System is a Django REST Framework application that automates
+ 5-a-side football pitch reservations in Egypt. It features real-time slot booking, 
+ user role dashboards, dynamic scheduling, and integrated online payments
+  (via local options like E-Wallets and InstaPay).

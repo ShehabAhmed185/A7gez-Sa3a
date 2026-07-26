@@ -1,16 +1,18 @@
 from django.db import models
 
-# # Create your models here.
-# class Club(models.Model):
-#         owner = models.ForeignKey(
-#         FieldOwner,
-#         on_delete=models.CASCADE,
-#         related_name="clubs"
-#     )
+class Club(models.Model):
+    # Reference model as 'app_label.ModelName' string
+    owner = models.ForeignKey(
+        'FieldOwner.FieldOwner',  # Replace 'owners_app' with your actual app name!
+        on_delete=models.CASCADE,
+        related_name="clubs"
+    )
 
-#     title = models.CharField(max_length=50)
-#     code = models.CharField(max_length=15)
-#     zone = models.CharField(max_length=15)
-#     address = models.CharField(max_length=100)
-#     numOfFields = models.IntegerField()
-    
+    title = models.CharField(max_length=50)
+    code = models.CharField(max_length=15, unique=True)
+    zone = models.CharField(max_length=50)
+    address = models.CharField(max_length=150)
+    num_of_fields = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.title} ({self.zone})"
