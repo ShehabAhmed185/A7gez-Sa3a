@@ -31,15 +31,21 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'Club.apps.ClubConfig',
+    'Customer.apps.CustomerConfig',
+    'FieldOwner.apps.FieldownerConfig',
+    'FiveSideFootball.apps.FivesidefootballConfig',
+    'SuperAdmin.apps.SuperadminConfig',
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'rest_framework',
 ]
-
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

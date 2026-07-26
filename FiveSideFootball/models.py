@@ -6,7 +6,7 @@ class Field(models.Model):
     
     # ForeignKey to the Club model in another app
     club = models.ForeignKey(
-        'clubs_app.Club',  # Replace 'clubs_app' with your actual app label!
+        'Club.Club',  # Replace 'clubs_app' with your actual app label!
         on_delete=models.CASCADE,
         related_name="fields"
     )
