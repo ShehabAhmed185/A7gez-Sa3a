@@ -5,12 +5,16 @@ from .serializers import ClubSerializer
 from .models import Club, ClubImage
 import random
 import string
+from rest_framework.parsers import MultiPartParser, FormParser
 
 class ClubAPI(APIView):
-
+    parser_classes = [MultiPartParser, FormParser]
     def post(self, request):
         print(request.FILES)
         print(request.FILES.getlist("images"))
+        print(request.content_type)
+        print(request.data)
+        print(request.FILES)
         data = request.data.copy()
         data["code"] = self.generate_club_code()
 
