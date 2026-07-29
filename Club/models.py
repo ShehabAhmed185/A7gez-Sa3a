@@ -16,3 +16,17 @@ class Club(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.zone})"
+
+
+class ClubImage(models.Model):
+    club = models.ForeignKey(
+        Club,
+        on_delete=models.CASCADE,
+        related_name="images"
+    )
+
+    image = models.ImageField(upload_to="clubs/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.club.title} - Image {self.id}"

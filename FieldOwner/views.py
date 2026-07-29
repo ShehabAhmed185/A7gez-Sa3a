@@ -7,6 +7,19 @@ from .models import FieldOwner
 
 class FieldOwnerAPI(APIView):
 
+    def get(self, request):
+        owners = FieldOwner.objects.all()
+        serializer = FieldOwnerSerializer(owners, many=True)
+
+        return Response(
+            {
+                "success": True,
+                "data": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+
+
     def post(self, request):
         serializer = FieldOwnerSerializer(data=request.data)
 
