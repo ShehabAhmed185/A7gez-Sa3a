@@ -9,19 +9,16 @@ from rest_framework.parsers import MultiPartParser, FormParser
 
 class ClubAPI(APIView):
     parser_classes = [MultiPartParser, FormParser]
+    #add new club to db
     def post(self, request):
-        print(request.FILES)
-        print(request.FILES.getlist("images"))
-        print(request.content_type)
-        print(request.data)
-        print(request.FILES)
+     
         data = request.data.copy()
         data["code"] = self.generate_club_code()
 
         serializer = ClubSerializer(data=data)
 
         if serializer.is_valid():
-            club = serializer.save(owner_id=1)
+            club = serializer.save(owner_id=1) #i use owner_id =1 constant untill make it owner id from jwt
 
             images = request.FILES.getlist("images")
 
