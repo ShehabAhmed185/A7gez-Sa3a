@@ -25,6 +25,7 @@ urlpatterns = [
     path('fieldOwner/', include("FieldOwner.urls")),
     path('club/', include("Club.urls")),
     path('field/', include("FiveSideFootball.urls")),
+    path('customer/', include("Customer.urls")),
 ]
 
 if settings.DEBUG:

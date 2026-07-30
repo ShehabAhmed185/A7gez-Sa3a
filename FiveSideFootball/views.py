@@ -20,7 +20,7 @@ class FieldAPI(APIView):
     def post(self, request):
         data = request.data.copy()
 
-        # Club id is constant = 8 untill use jwt
+        # Club id is constant = 11 untill use jwt
         data['club'] = 11
 
         # Auto-generate a unique code if the client didn't provide one
