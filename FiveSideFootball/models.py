@@ -13,6 +13,6 @@ class Field(models.Model):
     
     # Hourly price in EGP (DecimalField is ideal for prices)
     hour_rate = models.DecimalField(max_digits=8, decimal_places=2) 
-
+    
     def __str__(self):
         return f"{self.club.title} - {self.field_name}"

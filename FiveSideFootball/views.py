@@ -33,3 +33,15 @@ class FieldAPI(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request, id):
+        fields = Field.objects.filter(club_id=id)
+
+        if not fields.exists():
+            return Response(
+                {"error": "No fields found for this club"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = FieldSerializer(fields, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
