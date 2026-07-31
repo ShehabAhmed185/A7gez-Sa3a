@@ -20,6 +20,8 @@ class Booking(models.Model):
 
     # Date of the reservation
     date = models.DateField()
+    reservationCode = models.CharField(max_length=50)
+
 
     # List/Array storing reserved hours (e.g., [14, 15, 16] for 2 PM to 5 PM)
     # Starts empty/free [] by default
