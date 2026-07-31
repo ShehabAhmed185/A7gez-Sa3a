@@ -5,7 +5,8 @@ from .serializers import FieldSerializer
 from .models import Field
 import random
 import string
-
+from FieldOwner.models import FieldOwner
+from Club.models import Club
 
 class FieldAPI(APIView):
 
@@ -34,12 +35,20 @@ class FieldAPI(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def get(self, request, id):
-        fields = Field.objects.filter(club_id=id)
 
+
+    #get fields related to ownerId and owner club
+    def get(self, request, fieldOwner_id):
+        if not FieldOwner.objects.filter(id=fieldOwner_id).exists():
+            return Response(
+                {"error": "Owner not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        fields = Field.objects.filter(club__owner_id=fieldOwner_id)
         if not fields.exists():
             return Response(
-                {"error": "No fields found for this club"},
+                {"error": "No fields found for this owner"},
                 status=status.HTTP_404_NOT_FOUND
             )
 
