@@ -36,6 +36,8 @@ INSTALLED_APPS = [
     'FieldOwner.apps.FieldownerConfig',
     'FiveSideFootball.apps.FivesidefootballConfig',
     'SuperAdmin.apps.SuperadminConfig',
+    'Booking.apps.BookingConfig',
+    'Payment.apps.PaymentConfig',
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -119,7 +121,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Africa/Cairo'
 
 USE_I18N = True
 
