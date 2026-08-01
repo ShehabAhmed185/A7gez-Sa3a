@@ -1,11 +1,23 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from .serializers import FieldOwnerSerializer
 from django.contrib.auth.hashers import check_password
 from .models import FieldOwner
-from Booking.models import MoneyCalc,Booking
+from .authentication import FieldOwnerJWTAuthentication
+from Booking.models import MoneyCalc, Booking
+
+
 class FieldOwnerAPI(APIView):
+    # NOTE: left unauthenticated on purpose.
+    # POST is the public registration endpoint (an owner has no token
+    # until they exist), and GET lists all owners rather than a specific
+    # one, so there's no owner_id to swap for request.user. If you want
+    # this list restricted to logged-in owners (or admins only), tell me
+    # and I'll add authentication_classes/permission_classes here too.
 
     def get(self, request):
         owners = FieldOwner.objects.all()
@@ -18,7 +30,6 @@ class FieldOwnerAPI(APIView):
             },
             status=status.HTTP_200_OK
         )
-
 
     def post(self, request):
         serializer = FieldOwnerSerializer(data=request.data)
@@ -44,6 +55,8 @@ class FieldOwnerAPI(APIView):
 
 
 class FieldOwnerLoginAPI(APIView):
+    # No authentication_classes/permission_classes here either — a user
+    # who doesn't have a token yet is exactly who needs to hit /login.
 
     def post(self, request):
         #  "username": "ahmed_owner",
@@ -83,7 +96,11 @@ class FieldOwnerLoginAPI(APIView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-        # Login successful
+        # Login successful — issue a JWT pair for this owner.
+        # RefreshToken.for_user() only needs `owner.pk`, so this works
+        # even though FieldOwner isn't Django's AUTH_USER_MODEL.
+        refresh = RefreshToken.for_user(owner)
+
         return Response(
             {
                 "success": True,
@@ -93,31 +110,26 @@ class FieldOwnerLoginAPI(APIView):
                     "name": owner.name,
                     "username": owner.username,
                     "email": owner.email,
-                    "phone_number": owner.phone_number
+                    "phone_number": owner.phone_number,
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
                 }
             },
             status=status.HTTP_200_OK
         )
 
 
-
-
 class FieldOwnerGetMoneyAPI(APIView):
+    authentication_classes = [FieldOwnerJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
-    def get(self, request, owner_id):
-        # 1. Verify the owner exists
-        try:
-            owner = FieldOwner.objects.get(id=owner_id)
-        except FieldOwner.DoesNotExist:
-            return Response(
-                {
-                    "success": False,
-                    "message": "Field owner not found."
-                },
-                status=status.HTTP_404_NOT_FOUND
-            )
+    # owner_id removed from the signature/URL: the owner is now taken
+    # from the validated JWT (request.user), so an authenticated owner
+    # can only ever see their own money report, not anyone else's by id.
+    def get(self, request):
+        owner = request.user
 
-        # 2. Fetch this owner's money calculation record
+        # 1. Fetch this owner's money calculation record
         money_calc = MoneyCalc.objects.filter(owner=owner).first()
 
         if not money_calc:
@@ -136,7 +148,7 @@ class FieldOwnerGetMoneyAPI(APIView):
                 status=status.HTTP_200_OK
             )
 
-        # 3. Return the report
+        # 2. Return the report
         return Response(
             {
                 "success": True,
@@ -154,28 +166,22 @@ class FieldOwnerGetMoneyAPI(APIView):
 
 
 class FieldOwnerReportsAPI(APIView):
+    authentication_classes = [FieldOwnerJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
-    def get(self, request, owner_id):
-        # 1. Verify the owner exists
-        try:
-            owner = FieldOwner.objects.get(id=owner_id)
-        except FieldOwner.DoesNotExist:
-            return Response(
-                {
-                    "success": False,
-                    "message": "Field owner not found."
-                },
-                status=status.HTTP_404_NOT_FOUND
-            )
+    # owner_id removed from the signature/URL for the same reason as
+    # above — reports are scoped to the authenticated owner only.
+    def get(self, request):
+        owner = request.user
 
-        # 2. Get all bookings for fields belonging to this owner's clubs
+        # 1. Get all bookings for fields belonging to this owner's clubs
         bookings = (
-            Booking.objects.filter(field__club__owner_id=owner_id)
+            Booking.objects.filter(field__club__owner_id=owner.id)
             .select_related("field", "field__club")
             .order_by("-date")
         )
 
-        # 3. Build the response data
+        # 2. Build the response data
         data = [
             {
                 "booking_id": booking.id,
