@@ -6,55 +6,74 @@ from .models import Booking
 from FiveSideFootball.models import Field  # Adjust path if needed
 import random
 import string
+from datetime import datetime
+from django.db import transaction
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.response import Response
+
 
 class BookingAPI(APIView):
     def get(self, request, field_id):
-        # 1. Check if field exists
+    # 1. Check if field exists
         if not Field.objects.filter(id=field_id).exists():
             return Response(
-                {"error": "Field not found"},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Field not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        # 2. Get today's date directly from Django (uses your TIME_ZONE setting)
-        today = timezone.now().date()
+        # 2. Extract date from query parameters or default to today
+        date_param = request.query_params.get("date")
 
-        # 3. Get booking for today
-        booking = Booking.objects.filter(field_id=field_id, date=today).first()
+        if date_param:
+            try:
+                target_date = datetime.strptime(date_param, "%Y-%m-%d").date()
+            except ValueError:
+                return Response(
+                    {"error": "Invalid date format. Use 'YYYY-MM-DD'."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            target_date = timezone.now().date()
 
-        # 4. If no booking record exists for today, reserved_hours is empty []
+        # 3. Get booking for the specified date
+        booking = Booking.objects.filter(
+            field_id=field_id, date=target_date
+        ).first()
+
+        # 4. Extract reserved hours
         reserved_hours = booking.reserved_hours if booking else []
 
         return Response(
             {
                 "success": True,
                 "field_id": field_id,
-                "date": today,
-                "reserved_hours": reserved_hours
+                "date": str(target_date),
+                "reserved_hours": reserved_hours,
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
+
+# Reserve field for a specific day and hour
     def post(self, request, field_id):
         # 1. Verify if the Field exists
         field = Field.objects.filter(id=field_id).first()
         if not field:
             return Response(
-                {"error": "Field not found"},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Field not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        # 2. Extract requested hour slot from request body
+        # 2. Extract hour and date from request body
         hour = request.data.get("hour")
+        booking_date_str = request.data.get("date")  # Expected format: "YYYY-MM-DD"
 
-        # Validate that hour is provided
-        if hour is None:
+        if hour is None or booking_date_str is None:
             return Response(
-                {"error": "'hour' field is required in request body."},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "'hour' and 'date' fields are required in request body."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Ensure hour is an integer between 0 and 23
+        # Validate hour format (0-23)
         try:
             hour = int(hour)
             if not (0 <= hour <= 23):
@@ -62,54 +81,72 @@ class BookingAPI(APIView):
         except (ValueError, TypeError):
             return Response(
                 {"error": "Hour must be an integer between 0 and 23."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 3. Get today's date
-        today = timezone.now().date()
-
-        # 4. Fetch existing booking or get a new instance
-        booking = Booking.objects.filter(field=field, date=today).first()
-
-        if not booking:
-            # Create a new booking with a unique reservation code
-            code = self.generate_reservation_code()
-            booking = Booking.objects.create(
-                field=field,
-                date=today,
-                reservationCode=code,
-                reserved_hours=[]
-            )
-
-        # 5. Check if the hour is already reserved
-        if hour in booking.reserved_hours:
+        # Validate date format (YYYY-MM-DD) and check if it's in the past
+        try:
+            booking_date = datetime.strptime(booking_date_str, "%Y-%m-%d").date()
+        except ValueError:
             return Response(
-                {
-                    "error": f"Hour {hour}:00 is already reserved for today."
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Date must be in 'YYYY-MM-DD' format."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Ensure reservationCode exists if it wasn't populated previously
-        if not booking.reservationCode:
-            booking.reservationCode = self.generate_reservation_code()
+        if booking_date < timezone.now().date():
+            return Response(
+                {"error": "Cannot reserve field for a past date."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # 6. Append the new hour and keep the list sorted
-        booking.reserved_hours.append(hour)
-        booking.reserved_hours.sort()
-        booking.save()
+        # 3. Use an atomic transaction to handle concurrent reservations safely
+        with transaction.atomic():
+            # Fetch existing booking record for the specific date with a lock
+            booking = (
+                Booking.objects.select_for_update()
+                .filter(field=field, date=booking_date)
+                .first()
+            )
 
-        # 7. Return response including reservationCode
+            if not booking:
+                # Create a new booking for this date
+                code = self.generate_reservation_code()
+                booking = Booking.objects.create(
+                    field=field,
+                    date=booking_date,
+                    reservationCode=code,
+                    reserved_hours=[],
+                )
+
+            # 4. Check if the requested hour is already reserved
+            if hour in booking.reserved_hours:
+                return Response(
+                    {
+                        "error": f"Hour {hour}:00 is already reserved for {booking_date}."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Ensure reservation code exists
+            if not booking.reservationCode:
+                booking.reservationCode = self.generate_reservation_code()
+
+            # 5. Save the updated reservation
+            booking.reserved_hours.append(hour)
+            booking.reserved_hours.sort()
+            booking.save()
+
+        # 6. Return response
         return Response(
             {
                 "success": True,
-                "message": f"Hour {hour}:00 successfully reserved for today.",
+                "message": f"Hour {hour}:00 successfully reserved for {booking_date}.",
                 "reservation_code": booking.reservationCode,
                 "field_id": field_id,
-                "date": today,
-                "reserved_hours": booking.reserved_hours
+                "date": str(booking_date),
+                "reserved_hours": booking.reserved_hours,
             },
-            status=status.HTTP_201_CREATED
+            status=status.HTTP_201_CREATED,
         )
 
     def generate_reservation_code(self):
