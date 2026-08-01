@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from decimal import Decimal
 
 class Booking(models.Model):
     # Foreign key to Field model
@@ -36,3 +37,45 @@ class Booking(models.Model):
     # def __str__(self):
     #     customer_name = self.customer if self.customer else "Guest"
     #     return f"Booking: {self.field} on {self.date} by {customer_name}"
+
+from django.db import models
+from django.core.validators import MinValueValidator
+
+class MoneyCalc(models.Model):
+    owner = models.OneToOneField(
+        "FieldOwner.FieldOwner",
+        on_delete=models.CASCADE,
+        related_name="money_calc",
+    )
+
+    total_reserved_hours = models.PositiveIntegerField(default=0)
+
+    company_rate_per_hour = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        validators=[MinValueValidator(0)],
+    )
+
+    total_company_money = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0.00,
+        validators=[MinValueValidator(0)],
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+    def add_reservation(self, hours_count=1, rate_per_hour=None):
+        if rate_per_hour is None:
+            rate_per_hour = self.company_rate_per_hour
+
+        self.total_reserved_hours += hours_count
+        self.total_company_money = Decimal(self.total_company_money) + (
+            Decimal(hours_count) * Decimal(rate_per_hour)
+        )
+
+        self.company_rate_per_hour = Decimal(rate_per_hour)
+
+        self.save()

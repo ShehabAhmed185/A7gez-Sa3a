@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
-from .models import Booking
+from .models import Booking,MoneyCalc
 from FiveSideFootball.models import Field  # Adjust path if needed
 import random
 import string
@@ -135,6 +135,12 @@ class BookingAPI(APIView):
             booking.reserved_hours.append(hour)
             booking.reserved_hours.sort()
             booking.save()
+
+            owner = field.club.owner
+            money_calc, _ = MoneyCalc.objects.get_or_create(owner=owner)
+            # Use this field's actual hourly rate so the money calculation
+            # is correct even if different fields charge different rates.
+            money_calc.add_reservation(hours_count=1, rate_per_hour=field.hour_rate)
 
         # 6. Return response
         return Response(
