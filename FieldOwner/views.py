@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializers import FieldOwnerSerializer
@@ -9,15 +10,29 @@ from django.contrib.auth.hashers import check_password
 from .models import FieldOwner
 from .authentication import FieldOwnerJWTAuthentication
 from Booking.models import MoneyCalc, Booking
+from SuperAdmin.models import SuperAdmin
+from SuperAdmin.authentication import SuperAdminJWTAuthentication
 
 
 class FieldOwnerAPI(APIView):
-    # NOTE: left unauthenticated on purpose.
-    # POST is the public registration endpoint (an owner has no token
-    # until they exist), and GET lists all owners rather than a specific
-    # one, so there's no owner_id to swap for request.user. If you want
-    # this list restricted to logged-in owners (or admins only), tell me
-    # and I'll add authentication_classes/permission_classes here too.
+    # authentication_classes/permission_classes are explicitly emptied
+    # here. Without this, DRF's dispatch() runs perform_authentication()
+    # automatically using your project's DEFAULT_AUTHENTICATION_CLASSES
+    # (a plain JWTAuthentication), which tries to resolve the token's
+    # user_id against AUTH_USER_MODEL — not SuperAdmin — and fails with
+    # "User not found" before post() below ever runs. Setting these to
+    # [] disables that automatic pass so ONLY our manual
+    # SuperAdminJWTAuthentication check inside post() applies.
+    authentication_classes = []
+    permission_classes = []
+
+    # GET stays public (list all owners — no auth needed).
+    #
+    # POST (registration) now requires a valid Super Admin JWT: only a
+    # logged-in super admin is allowed to create new field owners.
+    # We can't set authentication_classes/permission_classes to enforce
+    # this at the class level (that would lock down GET too) — so POST
+    # authenticates manually against SuperAdminJWTAuthentication.
 
     def get(self, request):
         owners = FieldOwner.objects.all()
@@ -32,6 +47,42 @@ class FieldOwnerAPI(APIView):
         )
 
     def post(self, request):
+        # --- Require a valid Super Admin token ---
+        authenticator = SuperAdminJWTAuthentication()
+
+        try:
+            auth_result = authenticator.authenticate(request)
+        except AuthenticationFailed as exc:
+            return Response(
+                {
+                    "success": False,
+                    "message": str(exc.detail) if hasattr(exc, "detail") else "Invalid or expired token.",
+                },
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        if auth_result is None:
+            # No Authorization header was sent at all.
+            return Response(
+                {
+                    "success": False,
+                    "message": "A valid Super Admin token is required to register a field owner.",
+                },
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        admin_user, _ = auth_result
+
+        if not isinstance(admin_user, SuperAdmin):
+            return Response(
+                {
+                    "success": False,
+                    "message": "Only a Super Admin can register a field owner.",
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # --- Token checked out as a Super Admin, proceed with registration ---
         serializer = FieldOwnerSerializer(data=request.data)
 
         if serializer.is_valid():
@@ -52,6 +103,13 @@ class FieldOwnerAPI(APIView):
             },
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+
+
+
+
+
 
 
 class FieldOwnerLoginAPI(APIView):
