@@ -2,6 +2,8 @@ from django.contrib.auth.hashers import check_password, make_password
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from .serializers import SuperAdminSerializer
 from .models import SuperAdmin
 
@@ -61,22 +63,31 @@ class SuperAdminLoginAPI(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        if check_password(password, admin.password):
-            serializer = SuperAdminSerializer(admin)
-
+        if not check_password(password, admin.password):
             return Response(
                 {
-                    "success": True,
-                    "message": "Login successful.",
-                    "data": serializer.data,
+                    "success": False,
+                    "message": "Invalid username or password.",
                 },
-                status=status.HTTP_200_OK,
+                status=status.HTTP_401_UNAUTHORIZED,
             )
+
+        # Login successful — issue a JWT pair for this admin.
+        # RefreshToken.for_user() only needs `admin.pk`, so this works
+        # even though SuperAdmin isn't Django's AUTH_USER_MODEL.
+        refresh = RefreshToken.for_user(admin)
+
+        serializer = SuperAdminSerializer(admin)
+        data = dict(serializer.data)
+        data.pop("password", None)  # never echo the hash back
+        data["access"] = str(refresh.access_token)
+        data["refresh"] = str(refresh)
 
         return Response(
             {
-                "success": False,
-                "message": "Invalid username or password.",
+                "success": True,
+                "message": "Login successful.",
+                "data": data,
             },
-            status=status.HTTP_401_UNAUTHORIZED,
+            status=status.HTTP_200_OK,
         )
