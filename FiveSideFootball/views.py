@@ -1,14 +1,18 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from .serializers import FieldSerializer
 from .models import Field
 import random
 import string
-from FieldOwner.models import FieldOwner
+from FieldOwner.authentication import FieldOwnerJWTAuthentication
 from Club.models import Club
 
+
 class FieldAPI(APIView):
+    authentication_classes = [FieldOwnerJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def generate_field_code(self):
         """Generate a unique 7-character code for a Field."""
@@ -19,10 +23,19 @@ class FieldAPI(APIView):
 
     # add field to DB
     def post(self, request):
+        owner = request.user
         data = request.data.copy()
 
-        # Club id is constant = 11 untill use jwt
-        data['club'] = 11
+        # Look up the club belonging to the authenticated owner instead
+        # of trusting an owner_id from the URL/body.
+        club = Club.objects.filter(owner_id=owner.id).first()
+        if not club:
+            return Response(
+                {"error": "No club found for this owner."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        data['club'] = club.id
 
         # Auto-generate a unique code if the client didn't provide one
         if not data.get('code'):
@@ -35,17 +48,11 @@ class FieldAPI(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    # get fields related to the authenticated owner's club(s)
+    def get(self, request):
+        owner = request.user
 
-
-    #get fields related to ownerId and owner club
-    def get(self, request, fieldOwner_id):
-        if not FieldOwner.objects.filter(id=fieldOwner_id).exists():
-            return Response(
-                {"error": "Owner not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        fields = Field.objects.filter(club__owner_id=fieldOwner_id)
+        fields = Field.objects.filter(club__owner_id=owner.id)
         if not fields.exists():
             return Response(
                 {"error": "No fields found for this owner"},
