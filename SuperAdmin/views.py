@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from .authentication import SuperAdminJWTAuthentication
 from Booking.models import MoneyCalc
 from FieldOwner.models import FieldOwner
 
@@ -114,15 +114,14 @@ class SuperAdminLoginAPI(APIView):
 
 
 
-
-
 class SuperAdminMoneyReportAPI(APIView):
     """
-    GET /api/super-admin/money-report/
-    Returns total_company_money for every FieldOwner, including owners
-    with no MoneyCalc row yet (i.e. zero bookings so far).
+    GET /superadmin/getAllOwnersMoney/
+
+    Returns a money report for every FieldOwner.
+    Owners without a MoneyCalc record will have zero values.
     """
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [SuperAdminJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -149,20 +148,28 @@ class SuperAdminMoneyReportAPI(APIView):
             .order_by("-total_money")
         )
 
-        data = [
-            {
+        data = []
+
+        for owner in owners:
+            try:
+                updated_at = owner.money_calc.updated_at
+            except MoneyCalc.DoesNotExist:
+                updated_at = None
+
+            data.append({
                 "owner_id": owner.id,
                 "owner_name": owner.name,
                 "username": owner.username,
                 "total_reserved_hours": owner.total_hours,
                 "company_rate_per_hour": str(owner.rate_per_hour),
                 "total_company_money": str(owner.total_money),
-                "updated_at": getattr(owner.money_calc, "updated_at", None),
-            }
-            for owner in owners
-        ]
+                "updated_at": updated_at,
+            })
 
-        grand_total = sum((owner.total_money for owner in owners), start=0)
+        grand_total = sum(
+            (owner.total_money for owner in owners),
+            start=Decimal("0.00")
+        )
 
         return Response(
             {
@@ -177,11 +184,6 @@ class SuperAdminMoneyReportAPI(APIView):
 
 
 
-
-
-
-
-
 class SuperAdminMoneyDecreaseAPI(APIView):
     """
     POST /api/super-admin/owners/<owner_id>/money-decrease/
@@ -191,7 +193,7 @@ class SuperAdminMoneyDecreaseAPI(APIView):
     total_reserved_hours by (amount / company_rate_per_hour),
     rounded down to the nearest whole hour.
     """
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [SuperAdminJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request, owner_id):

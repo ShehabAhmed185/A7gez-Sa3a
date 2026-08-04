@@ -27,4 +27,11 @@ class SuperAdminJWTAuthentication(JWTAuthentication):
         except SuperAdmin.DoesNotExist:
             raise AuthenticationFailed("Super Admin not found.")
 
+        # Required: IsAuthenticated checks request.user.is_authenticated.
+        # SuperAdmin is a plain models.Model, not an AbstractBaseUser
+        # subclass, so it has no is_authenticated attribute by default —
+        # without setting it here, DRF's permission check raises
+        # AttributeError, which surfaces as a 401 on every request.
+        admin.is_authenticated = True
+
         return admin
