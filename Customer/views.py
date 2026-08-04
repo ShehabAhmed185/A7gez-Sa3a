@@ -36,6 +36,7 @@ class CustomerLoginAPI(APIView):
             return Response(
                 {
                     "message": "Login successful.",
+                    "type":"Customer",
                     "customer": {
                         "id": customer.id,
                         "name": customer.name,

@@ -163,6 +163,7 @@ class FieldOwnerLoginAPI(APIView):
             {
                 "success": True,
                 "message": "Login successful.",
+                "type":"Field Owner",
                 "data": {
                     "id": owner.id,
                     "name": owner.name,
