@@ -1,8 +1,8 @@
 from django.urls import path
-from .views import FieldAPI
+from .views import FieldAPI,GetFieldAPI
 
 urlpatterns = [
     path('addField/',FieldAPI.as_view()), # POST
-    path('getFields/<int:fieldOwner_id>/', FieldAPI.as_view(), name='field-detail'),  # GET
+    path('getFields/<int:fieldOwner_id>/', GetFieldAPI.as_view(), name='field-detail'),  # GET
 
 ]

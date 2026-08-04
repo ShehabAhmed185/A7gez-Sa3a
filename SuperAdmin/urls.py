@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import SuperAdminLoginAPI,SuperAdminAPI,SuperAdminMoneyReportAPI,SuperAdminMoneyDecreaseAPI
+from .views import SuperAdminLoginAPI,SuperAdminAPI,SuperAdminMoneyReportAPI,SuperAdminMoneyDecreaseAPI,DeleteFieldOwnerAPI
 from rest_framework_simplejwt.views import TokenRefreshView
 
 
@@ -7,6 +7,7 @@ urlpatterns = [
     path("register/", SuperAdminAPI.as_view()),     # was owner/reports/<int:owner_id>/
     path("login/", SuperAdminLoginAPI.as_view()),     # was owner/reports/<int:owner_id>/
     path("getAllOwnersMoney/", SuperAdminMoneyReportAPI.as_view()),     # was owner/reports/<int:owner_id>/
+    path("deleteOwner/<int:owner_id>/", DeleteFieldOwnerAPI.as_view()),     # was owner/reports/<int:owner_id>/
     path("decreaseMoneyForSpecificOwner/<int:owner_id>/moneyDecrease/", SuperAdminMoneyDecreaseAPI.as_view()),
     path("token/refresh/", TokenRefreshView.as_view()),
     

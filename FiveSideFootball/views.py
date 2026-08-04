@@ -49,10 +49,11 @@ class FieldAPI(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     # get fields related to the authenticated owner's club(s)
-    def get(self, request):
-        owner = request.user
+class GetFieldAPI(APIView):
 
-        fields = Field.objects.filter(club__owner_id=owner.id)
+    def get(self, request, fieldOwner_id):
+        fields = Field.objects.filter(club__owner_id=fieldOwner_id)
+
         if not fields.exists():
             return Response(
                 {"error": "No fields found for this owner"},

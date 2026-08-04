@@ -290,3 +290,34 @@ class SuperAdminMoneyDecreaseAPI(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+
+
+
+class DeleteFieldOwnerAPI(APIView):
+    authentication_classes = [SuperAdminJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, owner_id):
+        try:
+            owner = FieldOwner.objects.get(id=owner_id)
+        except FieldOwner.DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Field owner not found."
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        owner_name = owner.name
+        owner.delete()
+
+        return Response(
+            {
+                "success": True,
+                "message": f"Field owner '{owner_name}' and all related data deleted successfully."
+            },
+            status=status.HTTP_200_OK
+        )
